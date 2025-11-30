@@ -22,6 +22,8 @@ const App = () => {
     const localStreamRef = useRef();
     const remoteAudioRef = useRef();
 
+    const currentCallRef = useRef(null);
+
     const addLog = (msg) => {
         console.log(msg);
         setLogs(prev => [...prev.slice(-4), msg]);
@@ -43,6 +45,18 @@ const App = () => {
             requestAnimationFrame(update);
         };
         update();
+    };
+
+    const endCall = () => {
+        if (currentCallRef.current) {
+            currentCallRef.current.close();
+            currentCallRef.current = null;
+        }
+        if (remoteAudioRef.current) {
+            remoteAudioRef.current.srcObject = null;
+        }
+        setStatus('idle');
+        addLog('Call Ended');
     };
 
     useEffect(() => {
@@ -94,6 +108,7 @@ const App = () => {
             if (accept) {
                 getLocalStream().then((stream) => {
                     call.answer(stream); // Answer the call
+                    currentCallRef.current = call;
                     addLog('Answered Call');
                     setStatus('connected');
 
@@ -103,6 +118,10 @@ const App = () => {
                             remoteAudioRef.current.srcObject = remoteStream;
                             remoteAudioRef.current.play().catch(e => alert('Click Force Play!'));
                         }
+                    });
+
+                    call.on('close', () => {
+                        endCall();
                     });
                 });
             }
@@ -124,6 +143,7 @@ const App = () => {
 
         getLocalStream().then((stream) => {
             const call = peerRef.current.call(partnerIdInput, stream);
+            currentCallRef.current = call;
 
             call.on('stream', (remoteStream) => {
                 addLog('Received Audio Stream');
@@ -132,6 +152,10 @@ const App = () => {
                     remoteAudioRef.current.play().catch(e => alert('Click Force Play!'));
                 }
                 setStatus('connected');
+            });
+
+            call.on('close', () => {
+                endCall();
             });
 
             call.on('error', (err) => {
@@ -247,6 +271,12 @@ const App = () => {
                                 className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
                             >
                                 <span>🔊</span> Force Play Audio
+                            </button>
+                            <button
+                                onClick={endCall}
+                                className="w-full py-3 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+                            >
+                                <span>❌</span> End Call
                             </button>
                             <p className="text-xs text-center text-gray-500">Connected via PeerJS • End-to-End Encrypted</p>
                         </div>
