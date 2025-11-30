@@ -33,25 +33,6 @@ const App = () => {
             analyser.getByteFrequencyData(dataArray);
             const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
             setMicLevel(average);
-            requestAnimationFrame(update);
-        };
-        update();
-    };
-
-    useEffect(() => {
-        // List microphones
-        navigator.mediaDevices.enumerateDevices().then(devs => {
-            const audioInputs = devs.filter(d => d.kind === 'audioinput');
-            setDevices(audioInputs);
-            if (audioInputs.length > 0) {
-                setSelectedDeviceId(audioInputs[0].deviceId);
-            }
-        });
-    }, []);
-
-    // Helper to get stream from selected device
-    const getLocalStream = async () => {
-        try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }
             });
@@ -201,8 +182,8 @@ const App = () => {
                         )}
 
                         <div className={`w-32 h-32 rounded-full flex items-center justify-center text-5xl shadow-2xl transition-all duration-500 ${status === 'connected' ? 'bg-gradient-to-br from-green-400 to-emerald-600 scale-110' :
-                                status === 'searching' ? 'bg-gradient-to-br from-yellow-400 to-orange-500' :
-                                    'bg-gradient-to-br from-gray-700 to-gray-800'
+                            status === 'searching' ? 'bg-gradient-to-br from-yellow-400 to-orange-500' :
+                                'bg-gradient-to-br from-gray-700 to-gray-800'
                             }`}>
                             {status === 'connected' ? '🎙️' : status === 'searching' ? '🔍' : '👋'}
                         </div>
