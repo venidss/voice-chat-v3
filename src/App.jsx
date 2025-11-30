@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import io from 'socket.io-client';
 import Peer from 'peerjs';
 
 const App = () => {
-    const [status, setStatus] = useState('initializing'); // initializing, idle, searching, connected
+    const [status, setStatus] = useState('idle'); // idle, connecting, connected
     const [myPeerId, setMyPeerId] = useState(null);
+    const [partnerIdInput, setPartnerIdInput] = useState('');
     const [logs, setLogs] = useState([]);
     const [micLevel, setMicLevel] = useState(0);
     const [devices, setDevices] = useState([]);
@@ -18,7 +18,6 @@ const App = () => {
         selectedDeviceIdRef.current = selectedDeviceId;
     }, [selectedDeviceId]);
 
-    const socketRef = useRef();
     const peerRef = useRef();
     const localStreamRef = useRef();
     const remoteAudioRef = useRef();
@@ -80,60 +79,23 @@ const App = () => {
             alert('Security Error: Microphones are BLOCKED on http:// (insecure). You must use https:// (like Vercel) or localhost.');
         }
 
-        // ENV VAR CHECK: Warn if server URL is missing in production
-        if (import.meta.env.PROD && !import.meta.env.VITE_SERVER_URL) {
-            alert('Setup Error: VITE_SERVER_URL is missing! Go to Vercel Settings -> Environment Variables and add it.');
-        }
-
-        // 1. Setup Socket (for matching)
-        // Use env var for production, fallback to localhost for dev
-        const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3003';
-        addLog(`Attempting to connect to: ${SERVER_URL}`);
-
-        socketRef.current = io(SERVER_URL);
-        socketRef.current.on('connect', () => addLog('Socket Connected Successfully!'));
-        socketRef.current.on('connect_error', (err) => {
-            addLog(`Socket Error: ${err.message}`);
-            console.error('Socket Connection Error:', err);
-        });
-
-        // 2. Setup PeerJS (for audio)
+        // 1. Setup PeerJS (for audio)
         const peer = new Peer();
         peerRef.current = peer;
 
         peer.on('open', (id) => {
             addLog(`My Peer ID: ${id}`);
             setMyPeerId(id);
-            setStatus('idle');
         });
 
         peer.on('call', (call) => {
-            addLog('Incoming Call...');
-            getLocalStream().then((stream) => {
-                call.answer(stream); // Answer the call
-                addLog('Answered Call');
-
-                call.on('stream', (remoteStream) => {
-                    addLog('Received Audio Stream');
-                    if (remoteAudioRef.current) {
-                        remoteAudioRef.current.srcObject = remoteStream;
-                        remoteAudioRef.current.play().catch(e => alert('Click Force Play!'));
-                    }
-                    setStatus('connected');
-                });
-            });
-        });
-
-        peer.on('error', (err) => addLog(`Peer Error: ${err.type}`));
-
-        // 3. Handle Socket Matching
-        socketRef.current.on('match_found', ({ role, partnerPeerId }) => {
-            addLog(`Match Found! Role: ${role}`);
-
-            if (role === 'initiator') {
-                addLog(`Calling Partner: ${partnerPeerId}`);
+            addLog(`Incoming Call from ${call.peer}...`);
+            const accept = confirm(`Incoming call from ${call.peer}. Accept?`);
+            if (accept) {
                 getLocalStream().then((stream) => {
-                    const call = peerRef.current.call(partnerPeerId, stream);
+                    call.answer(stream); // Answer the call
+                    addLog('Answered Call');
+                    setStatus('connected');
 
                     call.on('stream', (remoteStream) => {
                         addLog('Received Audio Stream');
@@ -141,25 +103,47 @@ const App = () => {
                             remoteAudioRef.current.srcObject = remoteStream;
                             remoteAudioRef.current.play().catch(e => alert('Click Force Play!'));
                         }
-                        setStatus('connected');
                     });
                 });
-            } else {
-                addLog('Waiting for incoming call...');
             }
         });
 
+        peer.on('error', (err) => addLog(`Peer Error: ${err.type}`));
+
         return () => {
-            socketRef.current?.disconnect();
             peerRef.current?.destroy();
         };
     }, []); // Empty dependency array = Run once on mount
 
-    const startSearch = () => {
+    const callPartner = () => {
+        if (!partnerIdInput) return alert('Please enter a Partner ID');
         if (!myPeerId) return alert('PeerJS not ready yet');
-        setStatus('searching');
-        socketRef.current.emit('find_partner', myPeerId);
-        addLog('Searching for partner...');
+
+        setStatus('connecting');
+        addLog(`Calling ${partnerIdInput}...`);
+
+        getLocalStream().then((stream) => {
+            const call = peerRef.current.call(partnerIdInput, stream);
+
+            call.on('stream', (remoteStream) => {
+                addLog('Received Audio Stream');
+                if (remoteAudioRef.current) {
+                    remoteAudioRef.current.srcObject = remoteStream;
+                    remoteAudioRef.current.play().catch(e => alert('Click Force Play!'));
+                }
+                setStatus('connected');
+            });
+
+            call.on('error', (err) => {
+                addLog(`Call Error: ${err}`);
+                setStatus('idle');
+            });
+        });
+    };
+
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(myPeerId);
+        alert('Copied ID to clipboard!');
     };
 
     return (
@@ -217,31 +201,43 @@ const App = () => {
 
                 {/* Action Area */}
                 <div className="flex flex-col items-center gap-6">
-                    <div className="relative">
-                        {/* Status Ring Animation */}
-                        {status === 'searching' && (
-                            <div className="absolute inset-0 rounded-full bg-pink-500/20 animate-ping"></div>
-                        )}
 
-                        <div className={`w-32 h-32 rounded-full flex items-center justify-center text-5xl shadow-2xl transition-all duration-500 ${status === 'connected' ? 'bg-gradient-to-br from-green-400 to-emerald-600 scale-110' :
-                            status === 'searching' ? 'bg-gradient-to-br from-yellow-400 to-orange-500' :
-                                'bg-gradient-to-br from-gray-700 to-gray-800'
-                            }`}>
-                            {status === 'connected' ? '🎙️' : status === 'searching' ? '🔍' : '👋'}
+                    {/* My ID Display */}
+                    <div className="w-full bg-black/30 rounded-xl p-4 border border-white/5 flex items-center justify-between">
+                        <div className="overflow-hidden">
+                            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">My ID</p>
+                            <p className="font-mono text-sm text-pink-400 truncate">{myPeerId || 'Generating...'}</p>
                         </div>
+                        <button onClick={copyToClipboard} className="ml-4 p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors" title="Copy ID">
+                            📋
+                        </button>
                     </div>
 
                     {status === 'idle' && (
-                        <button
-                            onClick={startSearch}
-                            className="w-full py-4 bg-gradient-to-r from-pink-600 to-purple-600 rounded-xl font-bold text-lg shadow-lg shadow-pink-500/20 hover:shadow-pink-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                        >
-                            Find a Partner
-                        </button>
+                        <div className="w-full space-y-4">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Enter Partner ID"
+                                    value={partnerIdInput}
+                                    onChange={(e) => setPartnerIdInput(e.target.value)}
+                                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-4 text-center font-mono text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-500/50 transition-all"
+                                />
+                            </div>
+                            <button
+                                onClick={callPartner}
+                                className="w-full py-4 bg-gradient-to-r from-pink-600 to-purple-600 rounded-xl font-bold text-lg shadow-lg shadow-pink-500/20 hover:shadow-pink-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                            >
+                                Call Partner
+                            </button>
+                        </div>
                     )}
 
-                    {status === 'searching' && (
-                        <p className="text-gray-400 animate-pulse">Looking for someone...</p>
+                    {status === 'connecting' && (
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                            <p className="text-gray-400 animate-pulse">Connecting...</p>
+                        </div>
                     )}
 
                     {status === 'connected' && (
