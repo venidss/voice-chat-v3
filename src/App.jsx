@@ -101,7 +101,14 @@ const App = () => {
         }
 
         // 1. Setup PeerJS (for audio)
-        const peer = new Peer();
+        const peer = new Peer({
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' }
+                ]
+            }
+        });
         peerRef.current = peer;
 
         peer.on('open', (id) => {
@@ -371,8 +378,8 @@ const App = () => {
                 </div>
             </div>
 
-            {/* Hidden Audio */}
-            <audio ref={remoteAudioRef} autoPlay playsInline controls className="hidden" />
+            {/* Hidden Audio - Use opacity-0 instead of hidden to prevent browser optimization issues */}
+            <audio ref={remoteAudioRef} autoPlay playsInline controls className="opacity-0 absolute pointer-events-none" />
         </div>
     );
 };
