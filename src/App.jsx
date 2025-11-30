@@ -105,7 +105,14 @@ const App = () => {
             config: {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:global.stun.twilio.com:3478' }
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' },
+                    { urls: 'stun:stun.stunprotocol.org:3478' },
+                    { urls: 'stun:stun.nextcloud.com:3478' },
+                    { urls: 'stun:stun.voip.blackberry.com:3478' }
                 ]
             }
         });
@@ -128,6 +135,17 @@ const App = () => {
                 currentCallRef.current = call;
                 addLog('Answered Call');
                 setStatus('connected');
+
+                // Monitor ICE Connection State
+                call.peerConnection.oniceconnectionstatechange = () => {
+                    const iceState = call.peerConnection.iceConnectionState;
+                    addLog(`ICE State: ${iceState}`);
+                    if (iceState === 'disconnected' || iceState === 'failed' || iceState === 'closed') {
+                        setStatus('idle');
+                        addLog('Connection lost (ICE)');
+                        endCall();
+                    }
+                };
 
                 // Remove myself from queue if I was waiting
                 if (myQueueRef.current) {
@@ -211,6 +229,17 @@ const App = () => {
                 getLocalStream().then((stream) => {
                     const call = peerRef.current.call(foundPartner.peerId, stream);
                     currentCallRef.current = call;
+
+                    // Monitor ICE Connection State
+                    call.peerConnection.oniceconnectionstatechange = () => {
+                        const iceState = call.peerConnection.iceConnectionState;
+                        addLog(`ICE State: ${iceState}`);
+                        if (iceState === 'disconnected' || iceState === 'failed' || iceState === 'closed') {
+                            setStatus('idle');
+                            addLog('Connection lost (ICE)');
+                            endCall();
+                        }
+                    };
 
                     call.on('stream', (remoteStream) => {
                         addLog('Received Audio Stream');
