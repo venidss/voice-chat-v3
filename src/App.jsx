@@ -129,7 +129,16 @@ const App = () => {
 
         peer.on('error', (err) => addLog(`Peer Error: ${err.type}`));
 
+        // Handle tab close
+        const handleBeforeUnload = () => {
+            if (currentCallRef.current) {
+                currentCallRef.current.close();
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
         return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
             peerRef.current?.destroy();
         };
     }, []); // Empty dependency array = Run once on mount
@@ -156,6 +165,7 @@ const App = () => {
 
             call.on('close', () => {
                 endCall();
+                alert('Partner ended the call');
             });
 
             call.on('error', (err) => {
