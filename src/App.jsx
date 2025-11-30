@@ -41,11 +41,16 @@ const App = () => {
     useEffect(() => {
         // 1. Setup Socket (for matching)
         // Use env var for production, fallback to localhost for dev
+        // Use env var for production, fallback to localhost for dev
         const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3003';
-        console.log('Connecting to server:', SERVER_URL);
+        addLog(`Attempting to connect to: ${SERVER_URL}`);
 
         socketRef.current = io(SERVER_URL);
-        socketRef.current.on('connect', () => addLog('Socket Connected'));
+        socketRef.current.on('connect', () => addLog('Socket Connected Successfully!'));
+        socketRef.current.on('connect_error', (err) => {
+            addLog(`Socket Error: ${err.message}`);
+            console.error('Socket Connection Error:', err);
+        });
 
         // 2. Setup PeerJS (for audio)
         const peer = new Peer();
