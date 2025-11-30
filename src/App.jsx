@@ -33,17 +33,9 @@ const App = () => {
             analyser.getByteFrequencyData(dataArray);
             const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
             setMicLevel(average);
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }
-            });
-            localStreamRef.current = stream;
-            monitorMic(stream);
-            return stream;
-        } catch (err) {
-            console.error('Mic Error:', err);
-            alert(`Microphone Error: ${err.name}. Check permissions!`);
-            throw err;
-        }
+            requestAnimationFrame(update);
+        };
+        update();
     };
 
     useEffect(() => {
