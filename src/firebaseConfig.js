@@ -3,11 +3,6 @@ import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getDatabase } from "firebase/database";
-
-// Your web app's Firebase configuration
 const firebaseConfig = {
     apiKey: "AIzaSyB_XjrcLAe0edyLqQF7VwlN7C6nCF8Md4M",
     authDomain: "voice-chat-d6275.firebaseapp.com",
